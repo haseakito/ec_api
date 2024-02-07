@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  app:
+    container_name: ec_api
+    build:
+      context: src
+      dockerfile: Dockerfile.dev
+    ports:
+      - 8080:8080
+    volumes:
+      - ./src:/go/src
+    depends_on:
+      - db
+
+  db:
+    container_name: ec_db
+    image: mysql:8.0
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - data:/var/lib/mysql
+  
+  nginx:
+    container_name: ec_proxy
+    build:
+      context: nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+
+networks:
+  ec_backend:
+
+volumes:
+  data:
