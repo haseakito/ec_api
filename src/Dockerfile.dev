@@ -1,0 +1,20 @@
+# Use the official Golang image as the base image
+FROM golang:1.21.6-bullseye
+
+# Set the working directory inside the container
+WORKDIR /go/src
+
+# Copy go.mod and go.sum first
+COPY go.mod go.sum ./
+
+# Install dependencies
+RUN go mod download
+    
+# Copy the project files into the container
+COPY . .
+
+# Install air for live reloading
+RUN go install github.com/cosmtrek/air@latest
+
+# Start the project using air
+CMD [ "air", "-c", ".air.toml" ]
