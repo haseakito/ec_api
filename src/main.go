@@ -1,15 +1,27 @@
 package main
 
 import (
-	"net/http"
-	
-	"github.com/labstack/echo/v4"
+	"log"
+
+	"github.com/haseakito/ec_api/routes"
+	"github.com/joho/godotenv"
 )
 
+//
+func init() {
+	// Load environment variables
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Entrypoint
 func main() {
-	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, World")
-	})
+	// Initialize routers
+	e := routes.Init()
+
+	// Start the server
 	e.Logger.Fatal(e.Start(":8080"))
 }
