@@ -12,19 +12,22 @@ services:
       - ./src:/go/src
     depends_on:
       - db
+    networks:
+      - ec_backend
 
   db:
     container_name: ec_db
-    image: mysql:8.0
+    image: postgres
     ports:
-      - 3306:3306
+      - 5432:5432
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - data:/var/lib/mysql
+      - data:/var/lib/postgresql/data
+    networks:
+      - ec_backend
   
   nginx:
     container_name: ec_proxy
@@ -35,6 +38,8 @@ services:
       - "80:80"
     depends_on:
       - app
+    networks:
+      - ec_backend
 
 networks:
   ec_backend:
