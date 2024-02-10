@@ -18,9 +18,9 @@ type StoreController struct {
 /*
 Description:
 
-	Instantiate a new StoreController with the provided database connection.
+	Instantiates a new StoreController with the provided database connection.
 
-Parameter:
+Parameters:
 
 	db (*gorm.DB): A pointer to the GORM database connection.
 
