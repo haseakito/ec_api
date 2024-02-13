@@ -8,6 +8,15 @@ type StoreCreateRequest struct {
 	Description string `json:"description"`
 }
 
+/*
+Description:
+
+	Perform validation on the StoreCreateRequest struct fields.
+
+Returns:
+
+	error: An error if any validation fails, otherwise nil.
+*/
 func (r StoreCreateRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(
@@ -16,7 +25,7 @@ func (r StoreCreateRequest) Validate() error {
 		),
 		validation.Field(
 			&r.Name,
-			validation.Length(0, 255),
+			validation.Length(0, 30),
 			validation.Required.Error("Name is required"),
 		),
 		validation.Field(
@@ -31,6 +40,15 @@ type StoreUpdateRequest struct {
 	Description string `json:"description"`
 }
 
+/*
+Description:
+
+	Perform validation on the StoreUpdateRequest struct fields.
+
+Returns:
+
+	error: An error if any validation fails, otherwise nil.
+*/
 func (r StoreUpdateRequest) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(
