@@ -2,18 +2,11 @@ package controllers
 
 import (
 	"errors"
-	"log"
 	"net/http"
-	"os"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/haseakito/ec_api/models"
 	"github.com/haseakito/ec_api/requests"
+	"github.com/haseakito/ec_api/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -22,12 +15,42 @@ type StoreController struct {
 	db *gorm.DB
 }
 
+/*
+Description:
+
+	Instantiates a new StoreController with the provided database connection.
+
+Parameters:
+
+	db (*gorm.DB): A pointer to the GORM database connection.
+
+Returns:
+
+	*StoreController: A pointer to the newly created StoreController instance.
+*/
 func NewStoreController(db *gorm.DB) *StoreController {
 	return &StoreController{
 		db: db,
 	}
 }
 
+/*
+Description:
+
+	Creates a new store based on the data provided in the request payload.
+
+HTTP Method:
+
+	POST `/api/v1/stores`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) CreateStore(c echo.Context) error {
 	// Parsing request payload and validate the data
 	// If there is a problem with the request, throw an error
@@ -61,6 +84,23 @@ func (sc StoreController) CreateStore(c echo.Context) error {
 	return c.JSON(http.StatusCreated, store)
 }
 
+/*
+Description:
+
+	Get all stores. Return empty array if no record is found.
+
+HTTP Method:
+
+	GET `/api/v1/stores`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) GetStores(c echo.Context) error {
 	// Get all stores
 	var stores []models.Store
@@ -75,6 +115,23 @@ func (sc StoreController) GetStores(c echo.Context) error {
 	return c.JSON(http.StatusOK, stores)
 }
 
+/*
+Description:
+
+	Get a specific store with the store id provided. Return nil if no record is found.
+
+HTTP Method:
+
+	GET `/api/v1/stores/:id`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) GetStore(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
@@ -92,6 +149,23 @@ func (sc StoreController) GetStore(c echo.Context) error {
 	return c.JSON(http.StatusOK, store)
 }
 
+/*
+Description:
+
+	Update a specific store with the store id provided and based on the data in the request payload.
+
+HTTP Method:
+
+	PATCH `/api/v1/stores/:id`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) UpdateStore(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
@@ -135,55 +209,26 @@ func (sc StoreController) UpdateStore(c echo.Context) error {
 	return c.JSON(http.StatusOK, store)
 }
 
+/*
+Description:
+
+	Upload a store image file to storage and update the store with the store id.
+
+HTTP Method:
+
+	POST `/api/v1/stores/:id`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) UploadImage(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
-
-	// Get file from request
-	// If there is a problem with the request, throw an error
-	file, err := c.FormFile("image")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err)
-		return nil
-	}
-	
-	// Validate request file
-	// If there is a problem with the request, throw an error
-	if err := requests.ValidateFile(file); err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return nil
-	}
-
-	// Initialize AWS session
-	// If initialize failed, then throw an error
-	sess, err := session.NewSession()
-	if err != nil {
-		log.Fatal("Failed to create session:", err)
-		return nil
-	}
-
-	// Initialize S3 upload client
-	uploader := s3manager.NewUploader(sess)
-
-	// Open file
-	// If opening file is unsuccessful, 
-	src, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err)
-		return nil
-	}
-
-	// Upload file to AWS S3
-	// If there a problem with uploading, throw an error
-	res, err := uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(os.Getenv("AWS_BUCKET_NAME")),
-		Key:    aws.String("stores/" + file.Filename),
-		Body:   src,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return nil
-	}
 
 	// Get a store with store id
 	// If there is no record, then throw a NotFound error
@@ -195,8 +240,31 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 		}
 	}
 
+	// Get file from request
+	// If there is a problem with the request, throw an error
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return nil
+	}
+
+	// Validate request file
+	// If there is a problem with the request, throw an error
+	if err := requests.ValidateFile(file); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return nil
+	}
+
+	// Upload file to AWS S3 bucket
+	// If the upload is unsuccessful, then throw an error
+	url, err := utils.Upload(file, "stores/")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err)
+		return nil
+	}
+
 	// Update the image url
-	store.ImageUrl = &res.Location
+	store.ImageUrl = &url
 
 	// Update store with data
 	// If the update is unsuccessful, then throw an error
@@ -208,6 +276,23 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 	return c.JSON(http.StatusOK, store)
 }
 
+/*
+Description:
+
+	Delete a specific store with the store id and delete the corresponding object in storage.
+
+HTTP Method:
+
+	DELETE `/api/v1/stores/:id`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
 func (sc StoreController) DeleteStore(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
@@ -222,32 +307,9 @@ func (sc StoreController) DeleteStore(c echo.Context) error {
 		return nil
 	}
 
-	// If the store has an image URL, delete the corresponding object from S3
+	// If the store has an image url, delete the corresponding object from S3
 	if store.ImageUrl != nil {
-		// Parse the S3 object key from the image URL
-		imageURL := *store.ImageUrl
-		key := imageURL[strings.Index(imageURL, "amazonaws.com/")+len("amazonaws.com/"):]
-
-		// Initialize AWS session
-		sess, err := session.NewSession()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
-			return nil
-		}
-		
-		// Initialize S3 client
-		s3Client := s3.New(sess)
-
-		// Delete the object from S3
-		// If there is a problem with deleting, throw an error
-		_, err = s3Client.DeleteObject(&s3.DeleteObjectInput{
-			Bucket: aws.String(os.Getenv("AWS_BUCKET_NAME")),
-			Key:    aws.String(key),
-		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
-			return nil
-		}
+		utils.Delete(*store.ImageUrl)
 	}
 
 	// Delete a store
@@ -258,4 +320,102 @@ func (sc StoreController) DeleteStore(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, "Successfully deleted the store")
+}
+
+/*
+Description:
+
+	Create a product for a specific store with the store id and based on the data provided in the request payload.
+
+HTTP Method:
+
+	GET `/api/v1/stores/:id/products`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
+func (sc StoreController) CreateProduct(c echo.Context) error {
+	// Get store id from request
+	storeId := c.Param("id")
+
+	// Get a store with store id
+	var store models.Store
+	res := sc.db.Find(&store, "id = ?", storeId)
+
+	// If there is no record, then throw a NotFound error
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
+	}
+
+	// Parsing request payload and validate the data
+	// If there is a problem with the request, throw an error
+	var req requests.ProductCreateRequest
+	if err := c.Bind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return nil
+	}
+
+	// Validate request data
+	// If there is a problem with the request, throw an error
+	if err := req.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return nil
+	}
+
+	// Instantiate a new product
+	product := models.Product{
+		StoreID:     store.ID,
+		Name:        req.Name,
+		Description: req.Description,
+		Price:       req.Price,
+	}
+
+	// Create a new product for the store
+	if res := sc.db.Create(&product); res.Error != nil {
+		c.JSON(http.StatusInternalServerError, res.Error)
+		return nil
+	}
+
+	return c.JSON(http.StatusCreated, product)
+}
+
+/*
+Description:
+
+	Get all products that are already published for a specific store with the store id.
+
+HTTP Method:
+
+	GET `/api/v1/stores/:id/products`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
+func (sc StoreController) GetProducts(c echo.Context) error {
+	// Get store id from request
+	storeId := c.Param("id")
+
+	// Get a store with store id and products associated with the store
+	var products []models.Product
+	// res := sc.db.Where("store_id = ? AND is_published = ?", storeId, true).Find(&products)
+	res := sc.db.Where("store_id = ?", storeId).Find(&products)
+
+	// If there is no record, then throw a NotFound error
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
+	}
+
+	return c.JSON(http.StatusOK, products)
 }
