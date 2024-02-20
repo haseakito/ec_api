@@ -4,6 +4,7 @@ go 1.21.6
 
 require (
 	github.com/aws/aws-sdk-go v1.50.13
+	github.com/clerkinc/clerk-sdk-go v1.49.0
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.11.4
@@ -15,6 +16,7 @@ require (
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
