@@ -18,6 +18,7 @@ Fields:
 Relations:
 
 	Store: Belongs-to relationship to products. Each product belongs to a store.
+	Reviews: One-to-many relationship between products and reviews. Each product can have multiple reviews.
 	ProductImages: One-to-many relationship between products and product images. Each product can have multiple images.
 */
 type Product struct {
@@ -28,6 +29,7 @@ type Product struct {
 	Description   *string        `json:"description"`
 	Price         *float32       `json:"price"`
 	Published     bool           `json:"is_published"`
+	Reviews       []Review       `json:"reviews"`
 	ProductImages []ProductImage `json:"product_images"`
 }
 
