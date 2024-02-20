@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/haseakito/ec_api/models"
 	"github.com/haseakito/ec_api/requests"
@@ -138,7 +139,7 @@ func (sc StoreController) GetStore(c echo.Context) error {
 
 	// Get a store with store id
 	var store models.Store
-	res := sc.db.First(&store, "id = ?", storeId)
+	res := sc.db.Take(&store, "id = ?", storeId)
 
 	// If there is no record, then throw a NotFound error
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
@@ -172,7 +173,7 @@ func (sc StoreController) UpdateStore(c echo.Context) error {
 
 	// Get a store with store id
 	var store models.Store
-	res := sc.db.First(&store, "id = ?", storeId)
+	res := sc.db.Take(&store, "id = ?", storeId)
 
 	// If there is no record, then throw a NotFound error
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
@@ -196,8 +197,12 @@ func (sc StoreController) UpdateStore(c echo.Context) error {
 	}
 
 	// Update store fields
-	store.Name = req.Name
-	store.Description = &req.Description
+	if req.Name != "" {
+		store.Name = req.Name
+	}
+	if req.Description != "" {
+		store.Description = &req.Description
+	}
 
 	// Update store with data
 	// If the update is unsuccessful, then throw an error
@@ -233,7 +238,7 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 	// Get a store with store id
 	// If there is no record, then throw a NotFound error
 	var store models.Store
-	if err := sc.db.First(&store, "id = ?", storeId); err != nil {
+	if err := sc.db.Take(&store, "id = ?", storeId); err.Error != nil {
 		if errors.Is(err.Error, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, nil)
 			return nil
@@ -253,6 +258,11 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 	if err := requests.ValidateFile(file); err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return nil
+	}
+
+	// If the store has an image url, delete the corresponding object from S3
+	if store.ImageUrl != nil {
+		utils.Delete(*store.ImageUrl)
 	}
 
 	// Upload file to AWS S3 bucket
@@ -279,6 +289,52 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 /*
 Description:
 
+	Delete a store image with the store id.
+
+HTTP Method:
+
+	DELETE `/api/v1/stores/:id/assets`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
+func (sc StoreController) DeleteImage(c echo.Context) error {
+	// Get store id from request
+	storeId := c.Param("id")
+
+	// Get a store with store id
+	var store models.Store
+	res := sc.db.Take(&store, "id = ?", storeId)
+
+	// If there is no record, then throw a NotFound error
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
+	}
+
+	// If the store has an image url, delete the corresponding object from S3
+	if store.ImageUrl != nil {
+		utils.Delete(*store.ImageUrl)
+	}
+
+	store.ImageUrl = nil
+
+	if res := sc.db.Save(&store); res.Error != nil {
+		c.JSON(http.StatusInternalServerError, res.Error)
+		return nil
+	}
+
+	return c.JSON(http.StatusOK, "Successfully removed the store image")
+}
+
+/*
+Description:
+
 	Delete a specific store with the store id and delete the corresponding object in storage.
 
 HTTP Method:
@@ -299,7 +355,7 @@ func (sc StoreController) DeleteStore(c echo.Context) error {
 
 	// Get a store with store id
 	var store models.Store
-	res := sc.db.Find(&store, "id = ?", storeId)
+	res := sc.db.Take(&store, "id = ?", storeId)
 
 	// If there is no record, then throw a NotFound error
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
@@ -345,7 +401,7 @@ func (sc StoreController) CreateProduct(c echo.Context) error {
 
 	// Get a store with store id
 	var store models.Store
-	res := sc.db.Find(&store, "id = ?", storeId)
+	res := sc.db.Take(&store, "id = ?", storeId)
 
 	// If there is no record, then throw a NotFound error
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
@@ -388,7 +444,7 @@ func (sc StoreController) CreateProduct(c echo.Context) error {
 /*
 Description:
 
-	Get all products that are already published for a specific store with the store id.
+	Get all products for a specific store with the store id.
 
 HTTP Method:
 
@@ -406,10 +462,17 @@ func (sc StoreController) GetProducts(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
 
+	//
+	offsetStr := c.QueryParam("offset")
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		return echo.ErrBadRequest
+	}
+
+
 	// Get a store with store id and products associated with the store
 	var products []models.Product
-	// res := sc.db.Where("store_id = ? AND is_published = ?", storeId, true).Find(&products)
-	res := sc.db.Where("store_id = ?", storeId).Find(&products)
+	res := sc.db.Where("store_id = ?", storeId).Limit(10).Offset(offset).Find(&products)
 
 	// If there is no record, then throw a NotFound error
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
