@@ -17,7 +17,7 @@ Fields:
 
 Relations:
 
-	Store: Belongs-to relationship to products. Each product belongs to a store.
+	Store: Belongs-to relationship to stores. Each product belongs to a store.
 	Reviews: One-to-many relationship between products and reviews. Each product can have multiple reviews.
 	ProductImages: One-to-many relationship between products and product images. Each product can have multiple images.
 */
