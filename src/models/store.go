@@ -17,6 +17,7 @@ Fields:
 Relations:
 
 	Products: One-to-many relationship between stores and products. Each store can have multiple products.
+	Order: One-to-many relationship between stores and orders. Each store can have multiple orders.
 */
 type Store struct {
 	Model
@@ -26,4 +27,5 @@ type Store struct {
 	Description *string   `json:"description"`
 	ImageUrl    *string   `json:"image_url"`
 	Products    []Product `json:"products"`
+	Orders      []Order   `json:"orders"`
 }

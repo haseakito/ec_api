@@ -38,6 +38,8 @@ func Init() *gorm.DB {
 		&models.Store{},
 		&models.Product{},
 		&models.ProductImage{},
+		&models.Order{},
+		&models.OrderItem{},
 	)
 
 	return db

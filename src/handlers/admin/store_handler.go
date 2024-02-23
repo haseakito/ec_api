@@ -1,9 +1,8 @@
-package controllers
+package admin
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
+	"time"
 
 	"github.com/haseakito/ec_api/models"
 	"github.com/haseakito/ec_api/requests"
@@ -12,14 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type StoreController struct {
+type AdminStoreHandler struct {
 	db *gorm.DB
 }
 
 /*
 Description:
 
-	Instantiates a new StoreController with the provided database connection.
+	Instantiates a new AdminStoreHandler with the provided database connection.
 
 Parameters:
 
@@ -27,10 +26,10 @@ Parameters:
 
 Returns:
 
-	*StoreController: A pointer to the newly created StoreController instance.
+	*AdminStoreHandler: A pointer to the newly created AdminStoreHandler instance.
 */
-func NewStoreController(db *gorm.DB) *StoreController {
-	return &StoreController{
+func NewAdminStoreHandler(db *gorm.DB) *AdminStoreHandler {
+	return &AdminStoreHandler{
 		db: db,
 	}
 }
@@ -42,7 +41,7 @@ Description:
 
 HTTP Method:
 
-	POST `/api/v1/stores`
+	POST `/api/v1/admin/stores`
 
 Parameters:
 
@@ -52,7 +51,7 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) CreateStore(c echo.Context) error {
+func (h AdminStoreHandler) CreateStore(c echo.Context) error {
 	// Parsing request payload and validate the data
 	// If there is a problem with the request, throw an error
 	var req requests.StoreCreateRequest
@@ -77,7 +76,7 @@ func (sc StoreController) CreateStore(c echo.Context) error {
 
 	// Create a new store
 	// If the creation is unsuccessful, then throw an error
-	if res := sc.db.Create(&store); res.Error != nil {
+	if res := h.db.Create(&store); res.Error != nil {
 		c.JSON(http.StatusInternalServerError, res.Error)
 		return nil
 	}
@@ -88,140 +87,11 @@ func (sc StoreController) CreateStore(c echo.Context) error {
 /*
 Description:
 
-	Get all stores. Return empty array if no record is found.
-
-HTTP Method:
-
-	GET `/api/v1/stores`
-
-Parameters:
-
-	c (echo.Context): Context object containing the HTTP request information.
-
-Returns:
-
-	An error if any occurred during the execution of the function, nil otherwise.
-*/
-func (sc StoreController) GetStores(c echo.Context) error {
-	// Get all stores
-	var stores []models.Store
-	res := sc.db.Find(&stores)
-
-	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		c.JSON(http.StatusNotFound, nil)
-		return nil
-	}
-
-	return c.JSON(http.StatusOK, stores)
-}
-
-/*
-Description:
-
-	Get a specific store with the store id provided. Return nil if no record is found.
-
-HTTP Method:
-
-	GET `/api/v1/stores/:id`
-
-Parameters:
-
-	c (echo.Context): Context object containing the HTTP request information.
-
-Returns:
-
-	An error if any occurred during the execution of the function, nil otherwise.
-*/
-func (sc StoreController) GetStore(c echo.Context) error {
-	// Get store id from request
-	storeId := c.Param("id")
-
-	// Get a store with store id
-	var store models.Store
-	res := sc.db.Take(&store, "id = ?", storeId)
-
-	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		c.JSON(http.StatusNotFound, nil)
-		return nil
-	}
-
-	return c.JSON(http.StatusOK, store)
-}
-
-/*
-Description:
-
-	Update a specific store with the store id provided and based on the data in the request payload.
-
-HTTP Method:
-
-	PATCH `/api/v1/stores/:id`
-
-Parameters:
-
-	c (echo.Context): Context object containing the HTTP request information.
-
-Returns:
-
-	An error if any occurred during the execution of the function, nil otherwise.
-*/
-func (sc StoreController) UpdateStore(c echo.Context) error {
-	// Get store id from request
-	storeId := c.Param("id")
-
-	// Get a store with store id
-	var store models.Store
-	res := sc.db.Take(&store, "id = ?", storeId)
-
-	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		c.JSON(http.StatusNotFound, nil)
-		return nil
-	}
-
-	// Parsing request payload and validate the data
-	// If there is a problem with the request, throw an error
-	var req requests.StoreUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, err)
-		return nil
-	}
-
-	// Validate request data
-	// If there is a problem with the request, throw an error
-	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, err)
-		return nil
-	}
-
-	// Update store fields
-	if req.Name != "" {
-		store.Name = req.Name
-	}
-	if req.Description != "" {
-		store.Description = &req.Description
-	}
-
-	// Update store with data
-	// If the update is unsuccessful, then throw an error
-	if res := sc.db.Save(&store); res.Error != nil {
-		c.JSON(http.StatusInternalServerError, res.Error)
-		return nil
-	}
-
-	return c.JSON(http.StatusOK, store)
-}
-
-/*
-Description:
-
 	Upload a store image file to storage and update the store with the store id.
 
 HTTP Method:
 
-	POST `/api/v1/stores/:id`
+	POST `/api/v1/admin/stores/:id`
 
 Parameters:
 
@@ -231,18 +101,16 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) UploadImage(c echo.Context) error {
+func (h AdminStoreHandler) UploadImage(c echo.Context) error {
 	// Get store id from request
-	storeId := c.Param("id")
+	storeID := c.Param("id")
 
 	// Get a store with store id
 	// If there is no record, then throw a NotFound error
 	var store models.Store
-	if err := sc.db.Take(&store, "id = ?", storeId); err.Error != nil {
-		if errors.Is(err.Error, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, nil)
-			return nil
-		}
+	if err := h.db.Take(&store, "id = ?", storeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
 	}
 
 	// Get file from request
@@ -278,7 +146,7 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 
 	// Update store with data
 	// If the update is unsuccessful, then throw an error
-	if res := sc.db.Save(&store); res.Error != nil {
+	if res := h.db.Save(&store); res.Error != nil {
 		c.JSON(http.StatusInternalServerError, res.Error)
 		return nil
 	}
@@ -289,11 +157,11 @@ func (sc StoreController) UploadImage(c echo.Context) error {
 /*
 Description:
 
-	Delete a store image with the store id.
+	Update a specific store with the store id provided and based on the data in the request payload.
 
 HTTP Method:
 
-	DELETE `/api/v1/stores/:id/assets`
+	PATCH `/api/v1/admin/stores/:id`
 
 Parameters:
 
@@ -303,33 +171,49 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) DeleteImage(c echo.Context) error {
+func (h AdminStoreHandler) UpdateStore(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
 
 	// Get a store with store id
-	var store models.Store
-	res := sc.db.Take(&store, "id = ?", storeId)
-
 	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	var store models.Store
+	if err := h.db.Take(&store, "id = ?", storeId).Error; err != nil {
 		c.JSON(http.StatusNotFound, nil)
 		return nil
 	}
 
-	// If the store has an image url, delete the corresponding object from S3
-	if store.ImageUrl != nil {
-		utils.Delete(*store.ImageUrl)
+	// Parsing request payload and validate the data
+	// If there is a problem with the request, throw an error
+	var req requests.StoreUpdateRequest
+	if err := c.Bind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return nil
 	}
 
-	store.ImageUrl = nil
+	// Validate request data
+	// If there is a problem with the request, throw an error
+	if err := req.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return nil
+	}
 
-	if res := sc.db.Save(&store); res.Error != nil {
+	// Update store fields
+	if req.Name != "" {
+		store.Name = req.Name
+	}
+	if req.Description != "" {
+		store.Description = &req.Description
+	}
+
+	// Update store with data
+	// If the update is unsuccessful, then throw an error
+	if res := h.db.Save(&store); res.Error != nil {
 		c.JSON(http.StatusInternalServerError, res.Error)
 		return nil
 	}
 
-	return c.JSON(http.StatusOK, "Successfully removed the store image")
+	return c.JSON(http.StatusOK, store)
 }
 
 /*
@@ -339,7 +223,7 @@ Description:
 
 HTTP Method:
 
-	DELETE `/api/v1/stores/:id`
+	DELETE `/api/v1/admin/stores/:id`
 
 Parameters:
 
@@ -349,16 +233,14 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) DeleteStore(c echo.Context) error {
+func (h AdminStoreHandler) DeleteStore(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
 
 	// Get a store with store id
-	var store models.Store
-	res := sc.db.Take(&store, "id = ?", storeId)
-
 	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	var store models.Store
+	if err := h.db.Take(&store, "id = ?", storeId).Error; err != nil {
 		c.JSON(http.StatusNotFound, nil)
 		return nil
 	}
@@ -370,7 +252,7 @@ func (sc StoreController) DeleteStore(c echo.Context) error {
 
 	// Delete a store
 	// If the delete is unsuccessful, then throw an error
-	if res := sc.db.Delete(&store, "id = ?", storeId); res.Error != nil {
+	if res := h.db.Delete(&store, "id = ?", storeId); res.Error != nil {
 		c.JSON(http.StatusInternalServerError, res.Error)
 		return nil
 	}
@@ -381,11 +263,11 @@ func (sc StoreController) DeleteStore(c echo.Context) error {
 /*
 Description:
 
-	Create a product for a specific store with the store id and based on the data provided in the request payload.
+	Delete a store image with the store id.
 
 HTTP Method:
 
-	GET `/api/v1/stores/:id/products`
+	DELETE `/api/v1/admin/stores/:id/assets`
 
 Parameters:
 
@@ -395,16 +277,58 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) CreateProduct(c echo.Context) error {
+func (h AdminStoreHandler) DeleteImage(c echo.Context) error {
 	// Get store id from request
 	storeId := c.Param("id")
 
 	// Get a store with store id
-	var store models.Store
-	res := sc.db.Take(&store, "id = ?", storeId)
-
 	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	var store models.Store
+	if err := h.db.Take(&store, "id = ?", storeId).Error; err != nil {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
+	}
+
+	// If the store has an image url, delete the corresponding object from S3
+	if store.ImageUrl != nil {
+		utils.Delete(*store.ImageUrl)
+	}
+
+	store.ImageUrl = nil
+
+	if res := h.db.Save(&store); res.Error != nil {
+		c.JSON(http.StatusInternalServerError, res.Error)
+		return nil
+	}
+
+	return c.JSON(http.StatusOK, "Successfully removed the store image")
+}
+
+/*
+Description:
+
+	Create a product for a specific store with the store id and based on the data provided in the request payload.
+
+HTTP Method:
+
+	GET `/api/v1/admin/products/:storeID`
+
+Parameters:
+
+	c (echo.Context): Context object containing the HTTP request information.
+
+Returns:
+
+	An error if any occurred during the execution of the function, nil otherwise.
+*/
+func (h AdminStoreHandler) CreateProduct(c echo.Context) error {
+	// Get store id from request
+	storeID := c.Param("id")
+
+	// Get a store with store id
+	// If there is no record, then throw a NotFound error
+	var store models.Store
+	if err := h.db.Take(&store, "id = ?", storeID).Error; err != nil {
 		c.JSON(http.StatusNotFound, nil)
 		return nil
 	}
@@ -433,7 +357,7 @@ func (sc StoreController) CreateProduct(c echo.Context) error {
 	}
 
 	// Create a new product for the store
-	if res := sc.db.Create(&product); res.Error != nil {
+	if res := h.db.Create(&product); res.Error != nil {
 		c.JSON(http.StatusInternalServerError, res.Error)
 		return nil
 	}
@@ -448,7 +372,7 @@ Description:
 
 HTTP Method:
 
-	GET `/api/v1/stores/:id/products`
+	GET `/api/v1/admin/stores/:id/products`
 
 Parameters:
 
@@ -458,27 +382,52 @@ Returns:
 
 	An error if any occurred during the execution of the function, nil otherwise.
 */
-func (sc StoreController) GetProducts(c echo.Context) error {
+func (h AdminStoreHandler) GetProducts(c echo.Context) error {
 	// Get store id from request
-	storeId := c.Param("id")
+	storeID := c.Param("id")
 
 	//
-	offsetStr := c.QueryParam("offset")
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil {
-		return echo.ErrBadRequest
-	}
-
+	// offsetStr := c.QueryParam("offset")
+	// offset, err := strconv.Atoi(offsetStr)
+	// if err != nil {
+	// 	return echo.ErrBadRequest
+	// }
 
 	// Get a store with store id and products associated with the store
-	var products []models.Product
-	res := sc.db.Where("store_id = ?", storeId).Limit(10).Offset(offset).Find(&products)
-
 	// If there is no record, then throw a NotFound error
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	var products []models.Product
+	if err := h.db.Preload("ProductImages").Where("store_id = ?", storeID).Limit(10).Find(&products).Error; err != nil {
 		c.JSON(http.StatusNotFound, nil)
 		return nil
 	}
 
 	return c.JSON(http.StatusOK, products)
+}
+
+func (h AdminStoreHandler) GetRevenues(c echo.Context) error {
+	// Get store id from request
+	storeID := c.Param("id")
+
+	oneYearAgo := time.Now().AddDate(-1, 0, 0)
+
+	var orders []models.Order
+	if err := h.db.Preload("OrderItems.Product").Where("store_id = ? AND paid = ? AND created_at >= ?", storeID, true, oneYearAgo).Find(&orders).Error; err != nil {
+		c.JSON(http.StatusNotFound, nil)
+		return nil
+	}
+
+	var totalRevenue float64
+	for _, order := range orders {
+		for _, item := range order.OrderItems {
+			totalRevenue += float64(*item.Product.Price)
+		}
+	}
+
+	res := map[string]interface{}{
+		"orders":        orders,
+		"total_revenue": totalRevenue,
+		"sales_count":   len(orders),
+	}
+
+	return c.JSON(http.StatusOK, res)
 }
